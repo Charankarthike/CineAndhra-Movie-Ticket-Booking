@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin — Movie Ticket Booking</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="/css/style.css" rel="stylesheet" />
+  </head>
+  <body>
+    <nav class="navbar navbar-dark border-bottom border-secondary mb-4">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="/admin/dashboard.html">Admin Dashboard</a>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-light btn-sm" href="/">Public site</a>
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="logout">Logout</button>
+        </div>
+      </div>
+    </nav>
+    <div class="container-fluid px-4 pb-5">
+      <div id="gate" class="alert alert-warning d-none">
+        Admin access only. <a href="/admin/login.html">Admin login</a>
+      </div>
+      <div id="app" class="d-none">
+        <div id="msg" class="alert d-none"></div>
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabMovies" type="button">
+              Movies
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabShows" type="button">
+              Add show
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabBookings" type="button">
+              Bookings
+            </button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="tabMovies">
+            <div class="row g-4">
+              <div class="col-lg-5">
+                <h2 class="h5">Add movie</h2>
+                <form id="addMovie" class="border border-secondary rounded p-3 bg-dark">
+                  <div class="mb-2">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" name="title" required />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Duration (min)</label>
+                    <input class="form-control" type="number" name="duration" required min="1" />
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="description" rows="3"></textarea>
+                  </div>
+                  <div class="mb-2">
+                    <label class="form-label">Poster image URL</label>
+                    <input
+                      class="form-control"
+                      type="url"
+                      name="poster_url"
+                      placeholder="https://…"
+                    />
+                    <div class="form-text text-secondary">Optional. Use a direct https link to the image.</div>
+                  </div>
+                  <button class="btn btn-accent" type="submit">Add</button>
+                </form>
+              </div>
+              <div class="col-lg-7">
+                <h2 class="h5">Movies</h2>
+                <div class="table-responsive">
+                  <table class="table table-dark table-sm align-middle" id="movieTable">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Min</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="tabShows">
+            <h2 class="h5">Schedule a show</h2>
+            <form id="addShow" class="border border-secondary rounded p-3 bg-dark" style="max-width: 520px">
+              <div class="mb-2">
+                <label class="form-label">Movie</label>
+                <select class="form-select" name="movie_id" id="showMovie" required></select>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Theater</label>
+                <select class="form-select" name="theater_id" id="showTheater" required></select>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Show time (local)</label>
+                <input class="form-control" type="datetime-local" name="show_time" required />
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Ticket price</label>
+                <input class="form-control" type="number" step="1" min="0" name="ticket_price" value="165" />
+                <div class="form-text text-secondary">Amount in Indian Rupees (₹)</div>
+              </div>
+              <button class="btn btn-accent" type="submit">Add show + seats</button>
+            </form>
+          </div>
+
+          <div class="tab-pane fade" id="tabBookings">
+            <h2 class="h5">All bookings</h2>
+            <div class="table-responsive">
+              <table class="table table-dark table-sm align-middle" id="bookTable">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Customer</th>
+                    <th>Movie</th>
+                    <th>Theater</th>
+                    <th>When</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="editModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content bg-dark text-light border-secondary">
+          <div class="modal-header border-secondary">
+            <h5 class="modal-title">Edit movie</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="editMovie">
+              <input type="hidden" name="movie_id" id="em_id" />
+              <div class="mb-2">
+                <label class="form-label">Title</label>
+                <input class="form-control" name="title" id="em_title" required />
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Duration</label>
+                <input class="form-control" type="number" name="duration" id="em_duration" required />
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" name="description" id="em_desc" rows="3"></textarea>
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Poster image URL</label>
+                <input class="form-control" type="url" name="poster_url" id="em_poster" placeholder="https://…" />
+              </div>
+              <button class="btn btn-accent" type="submit">Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/currency.js"></script>
+    <script src="/js/api.js"></script>
+    <script>
+      const msg = document.getElementById('msg');
+      function flash(text, kind) {
+        msg.textContent = text;
+        msg.className = 'alert alert-' + (kind || 'info');
+        msg.classList.remove('d-none');
+        setTimeout(() => msg.classList.add('d-none'), 4000);
+      }
+
+      function gate() {
+        const u = API.getUser();
+        if (!API.getToken() || !u || u.role !== 'admin') {
+          document.getElementById('gate').classList.remove('d-none');
+          return false;
+        }
+        document.getElementById('app').classList.remove('d-none');
+        return true;
+      }
+
+      document.getElementById('logout').addEventListener('click', () => {
+        API.clearSession();
+        window.location.href = '/admin/login.html';
+      });
+
+      async function loadMoviesIntoUI() {
+        const movies = await API.request('/movies');
+        const tbody = document.querySelector('#movieTable tbody');
+        tbody.innerHTML = movies
+          .map(
+            (m) => `<tr>
+          <td>${m.movie_id}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              ${
+                m.poster_url
+                  ? `<img src="${escapeAttr(m.poster_url)}" alt="" width="36" height="54" class="rounded flex-shrink-0 bg-secondary" style="object-fit:cover" loading="lazy" />`
+                  : ''
+              }
+              <span>${escapeHtml(m.title)}</span>
+            </div>
+          </td>
+          <td>${m.duration}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-light me-1" data-edit="${m.movie_id}">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" data-del="${m.movie_id}">Delete</button>
+          </td>
+        </tr>`
+          )
+          .join('');
+
+        const sel = document.getElementById('showMovie');
+        sel.innerHTML = movies
+          .map((m) => `<option value="${m.movie_id}">${escapeHtml(m.title)}</option>`)
+          .join('');
+
+        tbody.querySelectorAll('[data-edit]').forEach((btn) => {
+          btn.addEventListener('click', () => openEdit(movies.find((x) => x.movie_id == btn.dataset.edit)));
+        });
+        tbody.querySelectorAll('[data-del]').forEach((btn) => {
+          btn.addEventListener('click', () => delMovie(btn.dataset.del));
+        });
+      }
+
+      function openEdit(m) {
+        document.getElementById('em_id').value = m.movie_id;
+        document.getElementById('em_title').value = m.title;
+        document.getElementById('em_duration').value = m.duration;
+        document.getElementById('em_desc').value = m.description || '';
+        document.getElementById('em_poster').value = m.poster_url || '';
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+      }
+
+      function escapeAttr(s) {
+        return String(s ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;');
+      }
+
+      async function delMovie(id) {
+        if (!confirm('Delete movie #' + id + '?')) return;
+        try {
+          await API.request('/delete-movie?movie_id=' + encodeURIComponent(id), { method: 'DELETE' });
+          flash('Movie deleted', 'success');
+          await loadMoviesIntoUI();
+        } catch (e) {
+          flash(e.message, 'danger');
+        }
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      document.getElementById('addMovie').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          await API.request('/add-movie', {
+            method: 'POST',
+            body: {
+              title: fd.get('title'),
+              duration: fd.get('duration'),
+              description: fd.get('description'),
+              poster_url: fd.get('poster_url') || undefined,
+            },
+          });
+          e.target.reset();
+          flash('Movie added', 'success');
+          await loadMoviesIntoUI();
+        } catch (err) {
+          flash(err.message, 'danger');
+        }
+      });
+
+      document.getElementById('editMovie').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          await API.request('/update-movie', {
+            method: 'PUT',
+            body: {
+              movie_id: Number(fd.get('movie_id')),
+              title: fd.get('title'),
+              duration: fd.get('duration'),
+              description: fd.get('description'),
+              poster_url: fd.get('poster_url') || '',
+            },
+          });
+          bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+          flash('Movie updated', 'success');
+          await loadMoviesIntoUI();
+        } catch (err) {
+          flash(err.message, 'danger');
+        }
+      });
+
+      document.getElementById('addShow').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        let showTime = fd.get('show_time');
+        if (showTime && showTime.length === 16) showTime = showTime + ':00';
+        showTime = String(showTime).replace('T', ' ');
+        try {
+          await API.request('/add-show', {
+            method: 'POST',
+            body: {
+              movie_id: Number(fd.get('movie_id')),
+              theater_id: Number(fd.get('theater_id')),
+              show_time: showTime,
+              ticket_price: fd.get('ticket_price'),
+            },
+          });
+          flash('Show and seats created', 'success');
+          e.target.reset();
+        } catch (err) {
+          flash(err.message, 'danger');
+        }
+      });
+
+      async function loadBookings() {
+        const rows = await API.request('/admin/bookings');
+        const tbody = document.querySelector('#bookTable tbody');
+        tbody.innerHTML = rows
+          .map(
+            (b) => `<tr>
+          <td>${b.booking_id}</td>
+          <td>${escapeHtml(b.customer_name)}<br/><span class="small text-secondary">${escapeHtml(
+            b.email
+          )}</span></td>
+          <td>${escapeHtml(b.movie_title)}</td>
+          <td>${escapeHtml(b.theater_name)}</td>
+          <td>${new Date(b.show_time).toLocaleString()}</td>
+          <td>${formatInr(b.total_price)}</td>
+          <td>${b.status}</td>
+        </tr>`
+          )
+          .join('');
+      }
+
+      (async function init() {
+        if (!gate()) return;
+        try {
+          const theaters = await API.request('/admin/theaters');
+          document.getElementById('showTheater').innerHTML = theaters
+            .map((t) => `<option value="${t.theater_id}">${escapeHtml(t.name)}</option>`)
+            .join('');
+          await loadMoviesIntoUI();
+          await loadBookings();
+        } catch (e) {
+          flash(e.message, 'danger');
+        }
+
+        document.querySelector('[data-bs-target="#tabBookings"]').addEventListener('shown.bs.tab', () => {
+          loadBookings().catch((e) => flash(e.message, 'danger'));
+        });
+      })();
+    </script>
+  </body>
+</html>

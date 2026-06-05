@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Movie Details — CineAndhra</title>
+    <meta name="description" content="View show times, theaters, and book your seats for this Telugu movie." />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/css/style.css" rel="stylesheet" />
+  </head>
+  <body>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark">
+      <div class="container">
+        <a class="navbar-brand" href="/">🎥 CineAndhra</a>
+        <a class="btn btn-outline-light btn-sm" href="/">← Back to Movies</a>
+      </div>
+    </nav>
+
+    <div class="container py-5 pb-5">
+      <div id="alert" class="alert alert-danger d-none mb-4"></div>
+      <div id="main" class="row g-5">
+
+        <!-- POSTER -->
+        <div class="col-lg-4">
+          <div class="detail-poster">
+            <div class="movie-poster-frame" style="aspect-ratio:2/3;">
+              <img id="posterImg" class="movie-poster-img d-none" alt="" />
+              <div id="posterPlaceholder" class="movie-poster-placeholder d-none"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DETAILS -->
+        <div class="col-lg-8">
+          <div style="margin-bottom:0.5rem;">
+            <span class="lang-badge" style="position:static; font-size:0.65rem;">Telugu</span>
+          </div>
+          <h1 class="detail-title" id="title"></h1>
+          <div class="detail-duration mb-3" id="duration">
+            <span>⏱</span> <span id="durationText"></span>
+          </div>
+          <p class="detail-desc" id="description"></p>
+
+          <hr class="gold" />
+
+          <div class="mb-3">
+            <p class="section-label mb-1">🎭 Select a Show</p>
+            <h2 class="section-title h5 mb-3">Theaters &amp; Show Times</h2>
+            <p class="small mb-3" style="color:var(--text-muted);">Sign in to select seats and book your tickets.</p>
+          </div>
+
+          <div id="showsList">
+            <div class="text-center py-4" style="color:var(--text-muted);">
+              <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+              Loading shows...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="border-top py-4 mt-2" style="border-color:var(--border) !important;">
+      <div class="container text-center">
+        <p class="mb-0" style="color:var(--text-muted);font-size:0.82rem;">© 2025 CineAndhra · Book smarter. Watch bigger.</p>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/currency.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/chatbot.js"></script>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const movieId = params.get('id');
+
+      function fmt(dt) {
+        const d = new Date(dt);
+        return d.toLocaleString(undefined, {
+          weekday: 'short', month: 'short', day: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        });
+      }
+      function durationLabel(min) {
+        const h = Math.floor(min / 60), m = min % 60;
+        return h ? `${h}h ${m}m` : `${m}m`;
+      }
+
+      async function load() {
+        const alertEl = document.getElementById('alert');
+        if (!movieId) {
+          alertEl.textContent = 'Missing movie id';
+          alertEl.classList.remove('d-none');
+          return;
+        }
+        try {
+          const movie = await API.request('/movies/' + movieId);
+          document.getElementById('title').textContent = movie.title;
+          document.getElementById('durationText').textContent = durationLabel(movie.duration);
+          document.getElementById('description').textContent = movie.description || '';
+          document.title = movie.title + ' — CineAndhra';
+
+          const img = document.getElementById('posterImg');
+          const ph  = document.getElementById('posterPlaceholder');
+          if (movie.poster_url) {
+            img.src = movie.poster_url;
+            img.alt = movie.title;
+            img.classList.remove('d-none');
+            ph.classList.add('d-none');
+            img.onerror = () => {
+              img.classList.add('d-none');
+              ph.textContent = movie.title;
+              ph.classList.remove('d-none');
+            };
+          } else {
+            img.classList.add('d-none');
+            ph.textContent = movie.title;
+            ph.classList.remove('d-none');
+          }
+
+          const shows = await API.request('/shows/' + movieId);
+          const showsList = document.getElementById('showsList');
+          if (!shows.length) {
+            showsList.innerHTML = `<div class="show-pill" style="justify-content:center; color:var(--text-muted);">No scheduled shows at the moment.</div>`;
+          } else {
+            showsList.innerHTML = shows.map(s => `
+              <div class="show-pill">
+                <div>
+                  <div class="show-theater">${escapeHtml(s.theater_name)}</div>
+                  <div class="show-location">📍 ${escapeHtml(s.theater_location)}</div>
+                </div>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                  <span class="show-time">🕐 ${fmt(s.show_time)}</span>
+                  <span class="show-price">${formatInr(s.ticket_price)}</span>
+                  <a class="btn-book" style="width:auto; padding:0.45rem 1.1rem;" href="/seats.html?show_id=${s.show_id}">Book Seats</a>
+                </div>
+              </div>`).join('');
+          }
+        } catch (e) {
+          document.getElementById('alert').textContent = e.message || 'Failed to load';
+          document.getElementById('alert').classList.remove('d-none');
+        }
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      load();
+    </script>
+  </body>
+</html>
+

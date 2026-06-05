@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Select Seats — Movie Ticket Booking</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link href="/css/style.css" rel="stylesheet" />
+  </head>
+  <body>
+    <nav class="navbar navbar-dark border-bottom border-secondary mb-3">
+      <div class="container">
+        <a class="navbar-brand" href="/">Online Movie Tickets</a>
+        <a class="btn btn-outline-light btn-sm" id="backLink" href="/">Back</a>
+      </div>
+    </nav>
+    <div class="container pb-5">
+      <div id="alert" class="alert alert-soft d-none"></div>
+      <div id="needLogin" class="alert alert-warning d-none">
+        Please <a href="/login.html">sign in</a> to select seats.
+      </div>
+      <div id="content" class="d-none">
+        <h1 class="h4" id="showTitle"></h1>
+        <p class="text-secondary small" id="showMeta"></p>
+        <div class="seat-legend mb-3 small">
+          <span class="bg-secondary border border-secondary"></span> Available
+          <span class="ms-3 bg-success border border-success"></span> Selected
+          <span class="ms-3" style="background: #3a2424; border: 1px solid #663"></span> Booked / held
+        </div>
+        <p class="small text-secondary mb-2">Screen</p>
+        <div class="screen-bar"></div>
+        <div class="d-flex justify-content-center mb-4">
+          <div class="seat-grid" id="seatGrid"></div>
+        </div>
+        <div class="card bg-dark border-secondary text-white mb-3" style="max-width: 420px">
+          <div class="card-body">
+            <p class="mb-1">
+              Selected: <strong id="selCount" class="text-accent">0</strong> /
+              <span id="maxSeats">8</span>
+            </p>
+            <p class="mb-0">Total: <strong id="totalPrice" class="text-accent">₹0</strong></p>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-accent" id="btnReserve" disabled>
+            Reserve selection
+          </button>
+          <button type="button" class="btn btn-outline-light" id="btnBook" disabled>
+            Create booking &amp; pay
+          </button>
+        </div>
+        <p class="text-secondary small mt-2">
+          Reserve locks seats temporarily. Then create a booking and complete simulated payment.
+        </p>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/currency.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/chatbot.js"></script>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const showId = params.get('show_id');
+      let payload = null;
+      let selected = new Set();
+      let reservedSeatIds = new Set();
+
+      function showAlert(msg) {
+        const el = document.getElementById('alert');
+        el.textContent = msg;
+        el.classList.remove('d-none');
+      }
+      function clearAlert() {
+        const el = document.getElementById('alert');
+        el.classList.add('d-none');
+      }
+
+      function parseSeatNumber(sn) {
+        const m = String(sn).match(/^([A-Za-z]+)(\d+)$/);
+        if (!m) return { row: '_', col: 0 };
+        return { row: m[1].toUpperCase(), col: parseInt(m[2], 10) };
+      }
+
+      function groupSeats(list) {
+        const map = new Map();
+        for (const s of list) {
+          const { row } = parseSeatNumber(s.seat_number);
+          if (!map.has(row)) map.set(row, []);
+          map.get(row).push(s);
+        }
+        const rows = [...map.keys()].sort();
+        for (const r of rows) {
+          map.get(r).sort((a, b) => parseSeatNumber(a.seat_number).col - parseSeatNumber(b.seat_number).col);
+        }
+        return { rows, map };
+      }
+
+      function renderGrid(seats, unitPrice, maxSeats) {
+        const { rows, map } = groupSeats(seats);
+        const grid = document.getElementById('seatGrid');
+        document.getElementById('maxSeats').textContent = maxSeats;
+        grid.innerHTML = rows
+          .map((row) => {
+            const cells = map
+              .get(row)
+              .map((s) => {
+                const isSel = selected.has(s.seat_id);
+                const dis = s.disabled && !isSel;
+                let cls = 'seat-btn ';
+                if (s.status === 'booked' || (s.status === 'reserved' && !s.reserved_by_me))
+                  cls += 'booked ';
+                if (isSel) cls += 'selected ';
+                if (!dis || isSel) cls += 'available ';
+                return `<button type="button" class="${cls.trim()}" data-id="${s.seat_id}" ${
+                  dis && !isSel ? 'disabled' : ''
+                }>${escapeHtml(s.seat_number)}</button>`;
+              })
+              .join('');
+            return `<div class="seat-row"><span class="seat-row-label">${row}</span>${cells}</div>`;
+          })
+          .join('');
+
+        grid.querySelectorAll('.seat-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const id = Number(btn.dataset.id);
+            const seat = seats.find((x) => x.seat_id === id);
+            if (!seat || (seat.disabled && !selected.has(id))) return;
+            if (selected.has(id)) {
+              selected.delete(id);
+            } else {
+              if (selected.size >= maxSeats) {
+                showAlert(`Maximum ${maxSeats} seats per booking.`);
+                return;
+              }
+              clearAlert();
+              selected.add(id);
+            }
+            updateTotals(unitPrice, maxSeats);
+            renderGrid(seats, unitPrice, maxSeats);
+          });
+        });
+
+        updateTotals(unitPrice, maxSeats);
+      }
+
+      function updateTotals(unitPrice, maxSeats) {
+        document.getElementById('selCount').textContent = selected.size;
+        const total = +(unitPrice * selected.size).toFixed(2);
+        document.getElementById('totalPrice').textContent = formatInr(total);
+        document.getElementById('btnReserve').disabled = selected.size === 0;
+        document.getElementById('btnBook').disabled = reservedSeatIds.size === 0;
+      }
+
+      function escapeHtml(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      async function reload() {
+        clearAlert();
+        const data = await API.request('/seats/' + showId);
+        payload = data;
+        const show = data.show;
+        document.getElementById(
+          'showTitle'
+        ).textContent = `${show.title} — ${show.theater_name}`;
+        const st = new Date(show.show_time);
+        document.getElementById('showMeta').textContent = `${st.toLocaleString()} · ${formatInr(
+          show.ticket_price
+        )} per seat`;
+
+        selected.clear();
+        data.seats.forEach((s) => {
+          if (s.reserved_by_me) selected.add(s.seat_id);
+        });
+        reservedSeatIds = new Set(
+          data.seats.filter((s) => s.reserved_by_me).map((s) => s.seat_id)
+        );
+
+        const unit = Number(show.ticket_price);
+        renderGrid(data.seats, unit, data.max_seats_per_booking);
+        document.getElementById('btnBook').disabled = reservedSeatIds.size === 0;
+      }
+
+      document.getElementById('btnReserve').addEventListener('click', async () => {
+        clearAlert();
+        try {
+          await API.request('/select-seats', {
+            method: 'POST',
+            body: { show_id: Number(showId), seat_ids: [...selected] },
+          });
+          await reload();
+          showAlert('Seats reserved. Continue to create booking and pay.');
+        } catch (e) {
+          showAlert(e.message || 'Could not reserve seats');
+          await reload();
+        }
+      });
+
+      document.getElementById('btnBook').addEventListener('click', async () => {
+        clearAlert();
+        try {
+          const b = await API.request('/book', {
+            method: 'POST',
+            body: { show_id: Number(showId) },
+          });
+          sessionStorage.setItem('pending_booking_id', String(b.booking_id));
+          window.location.href = '/payment.html?booking_id=' + encodeURIComponent(b.booking_id);
+        } catch (e) {
+          showAlert(e.message || 'Booking failed');
+        }
+      });
+
+      (async function init() {
+        if (!showId) {
+          showAlert('Missing show_id');
+          return;
+        }
+        if (!API.getToken()) {
+          document.getElementById('needLogin').classList.remove('d-none');
+          return;
+        }
+        document.getElementById('content').classList.remove('d-none');
+        try {
+          await reload();
+        } catch (e) {
+          showAlert(e.message || 'Failed to load seats');
+        }
+      })();
+    </script>
+  </body>
+</html>

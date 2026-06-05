@@ -1,0 +1,4 @@
+module.exports = {
+  MAX_SEATS_PER_BOOKING: 8,
+  RESERVATION_TTL_MINUTES: 15,
+};
