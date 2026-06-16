@@ -3,21 +3,13 @@
  * Run: npm run seed
  */
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
-const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+const pool = require('../config/db');
 
 const ROWS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const COLS = 12;
 
 async function main() {
-  const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'movie_booking',
-    waitForConnections: true,
-    connectionLimit: 5,
-  });
 
   const conn = await pool.getConnection();
   try {
