@@ -11,6 +11,7 @@ const bookingRoutes = require('./routes/bookingRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const setupRoutes = require('./routes/setupRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +27,7 @@ app.use(bookingRoutes);
 app.use(paymentRoutes);
 app.use(adminRoutes);
 app.use(aiRoutes);
+app.use(setupRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
